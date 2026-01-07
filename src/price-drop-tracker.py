@@ -13,7 +13,14 @@ CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 # SYMBOLS = ["ISAC.L"]
 SYMBOLS = ["ISAC.L", "CNDX.L", "CSPX.L", "FLXC.DE", "VWCG.DE", "ETFBW20TR.WA"]
 
+def is_market_open():
+    current_hour = datetime.now().hour
+    return 9 <= current_hour < 20
+
 def check_prices():
+    if not is_market_open():
+        return
+
     today = datetime.now().strftime('%Y-%m-%d')
     sent_alerts = get_sent_alerts()
     cleanup_old_logs()
