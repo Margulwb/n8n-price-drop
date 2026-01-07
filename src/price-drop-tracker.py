@@ -10,8 +10,8 @@ from telegram.send import send_telegram
 
 TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
-SYMBOLS = ["ISAC.L"]
-# SYMBOLS = ["ISAC.L", "CNDX.L", "CSPX.L", "FLXC.DE", "VWCG.DE", "ETFBW20TR.WA"]
+# SYMBOLS = ["ISAC.L"]
+SYMBOLS = ["ISAC.L", "CNDX.L", "CSPX.L", "FLXC.DE", "VWCG.DE", "ETFBW20TR.WA"]
 
 def check_prices():
     today = datetime.now().strftime('%Y-%m-%d')
@@ -47,7 +47,7 @@ def check_prices():
             log_to_file(f"Error checking {symbol}: {e}")
 
 if __name__ == "__main__":
-    log_to_file("Service Status: Started")
+    log_to_file("================================ Service Status: Started ================================")
     while True:
         check_prices()
         time.sleep(600)
