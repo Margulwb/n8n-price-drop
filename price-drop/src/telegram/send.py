@@ -1,6 +1,6 @@
 import requests
 import os
-from file.logs import log_to_file
+from src.file.logs import log_to_file
 
 def send_telegram(message):
     CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")

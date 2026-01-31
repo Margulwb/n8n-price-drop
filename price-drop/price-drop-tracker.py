@@ -1,12 +1,11 @@
 import requests
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 import os
-import glob
 
-from file.logs import log_to_file, cleanup_old_logs
-from file.check_alert_send import get_sent_alerts, mark_as_sent
-from telegram.send import send_telegram
+from src.file.logs import log_to_file, cleanup_old_logs
+from src.file.check_alert_send import get_sent_alerts, mark_as_sent
+from src.telegram.send import send_telegram
 
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 # SYMBOLS = ["ISAC.L"]
@@ -38,7 +37,7 @@ def check_prices():
 
             alert_key = f"{symbol}_{today}"
 
-            if change_pct <= -1 and alert_key not in sent_alerts:
+            if change_pct <= -1.5000 and alert_key not in sent_alerts:
                 message = (
                     f"📉 Price Alert: {symbol}\n"
                     f"Current Price: {current_price}\n"

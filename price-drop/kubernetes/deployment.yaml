@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: price-drop-app
+  labels:
+    app: price-drop
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: price-drop
+  template:
+    metadata:
+      labels:
+        app: price-drop
+    spec:
+      restartPolicy: Always
+      containers:
+      - name: price-drop-container
+        image: margulewicz/price-drop:2.0
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 5000
+          name: http
+          protocol: TCP
+        env:
+        - name: TELEGRAM_CHAT_ID
+          valueFrom:
+            secretKeyRef:
+              name: price-drop-secrets
+              key: chat-id
+        - name: TELEGRAM_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: price-drop-secrets
+              key: token
+        - name: CHECK_INTERVAL
+          value: "300"
+        - name: PYTHONUNBUFFERED
+          value: "1"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 2
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 256Mi
+        volumeMounts:
+        - name: logs-volume
+          mountPath: /var/log/price-drop
+        - name: data-volume
+          mountPath: /opt/price-drop
+      volumes:
+      - name: logs-volume
+        emptyDir: {}
+      - name: data-volume
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: price-drop-svc
+  labels:
+    app: price-drop
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 5000
+    protocol: TCP
+    name: http
+  selector:
+    app: price-drop
