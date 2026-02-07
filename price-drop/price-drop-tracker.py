@@ -8,8 +8,6 @@ from src.file.check_alert_send import get_sent_alerts, mark_as_sent
 from src.telegram.send import send_telegram
 
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
-# SYMBOLS = ["ISAC.L"]
-# SHOW NAME OF THE STOCK INSTEAD OF THE SYMBOL
 SYMBOLS = ["ISAC.L", "CNDX.L", "CSPX.L", "FLXC.DE", "VWCG.DE", "ETFBW20TR.WA"]
 
 def check_prices():

@@ -1,35 +1,67 @@
 import requests
 from datetime import datetime
 import os
-from flask import Flask, jsonify, render_template
+import logging
+from flask import Flask, jsonify, render_template, request
 from apscheduler.schedulers.background import BackgroundScheduler
 import atexit
 
 from src.file.logs import log_to_file, cleanup_old_logs
-from src.file.check_alert_send import get_sent_alerts, mark_as_sent
+from src.file.check_alert_send import get_alert_thresholds, save_alert_threshold, cleanup_alert_file
 from src.telegram.send import send_telegram
 
 app = Flask(__name__, template_folder='templates')
 
+log = logging.getLogger('werkzeug')
+
+class HealthCheckFilter(logging.Filter):
+    def filter(self, record):
+        return '/health' not in record.getMessage()
+
+log.addFilter(HealthCheckFilter())
+
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
-SYMBOLS = ["ISAC.L", "CNDX.L", "CSPX.L", "FLXC.DE", "VWCG.DE", "ETFBW20TR.WA"]
+
+SYMBOL_NAMES = {
+    "ISAC.L": "MSCI ACWI Globalny",
+    "CNDX.L": "NASDAQ 100",
+    "CSPX.L": "S&P 500",
+    "FLXC.DE": "FTSE China",
+    "VWCG.DE": "FTSE Developed Europe",
+    "ETFBW20TR.WA": "WIG20",
+    "FLXI.DE": "FTSE India",
+    "VVSM.DE": "Semiconductor"
+}
+
+SYMBOLS = list(SYMBOL_NAMES.keys())
 CHECK_INTERVAL = int(os.getenv("CHECK_INTERVAL", "300"))
+ALERT_THRESHOLD_FIRST = -1.0
+ALERT_THRESHOLD_STEP = -0.5
 
 last_check_time = None
 last_check_status = None
 
+
+def get_next_threshold(current_change_pct):
+    threshold = ALERT_THRESHOLD_FIRST
+    while threshold >= current_change_pct:
+        threshold += ALERT_THRESHOLD_STEP
+    return threshold - ALERT_THRESHOLD_STEP
 
 def check_prices():
     global last_check_time, last_check_status
     
     try:
         current_time = datetime.now()
-        if current_time.hour < 9 or current_time.hour >= 20:
-            log_to_file("Outside market hours, skipping check")
+        hour = current_time.hour
+        if hour < 9 or hour >= 18:
+            log_to_file(f"Market closed ({current_time.strftime('%H:%M:%S')}). Skipping check.")
             return
 
-        today = datetime.now().strftime('%Y-%m-%d')
-        sent_alerts = get_sent_alerts()
+        log_to_file(f"Check prices triggered at {current_time.strftime('%H:%M:%S')}")
+
+        cleanup_alert_file()
+        alert_thresholds = get_alert_thresholds()
         cleanup_old_logs()
 
         results = []
@@ -45,26 +77,33 @@ def check_prices():
                 previous_close = meta['previousClose']
                 change_pct = ((current_price - previous_close) / previous_close) * 100
 
-                log_to_file(f"{symbol}: {current_price} (Change: {change_pct:.2f}%)")
+                symbol_name = SYMBOL_NAMES.get(symbol, symbol)
+                log_to_file(f"{symbol} ({symbol_name}): {current_price} (Change: {change_pct:.2f}%)")
                 
                 result = {
                     "symbol": symbol,
+                    "name": symbol_name,
                     "price": current_price,
                     "change_pct": change_pct,
                     "status": "checked"
                 }
 
-                alert_key = f"{symbol}_{today}"
-
-                if change_pct <= -1.5000 and alert_key not in sent_alerts:
-                    message = (
-                        f"📉 Price Alert: {symbol}\n"
-                        f"Current Price: {current_price}\n"
-                        f"Change: {change_pct:.4f}%"
-                    )
-                    send_telegram(message)
-                    mark_as_sent(alert_key)
-                    result["alert_sent"] = True
+                if change_pct <= ALERT_THRESHOLD_FIRST:
+                    last_sent_threshold = alert_thresholds.get(symbol, 0.0)
+                    current_threshold = get_next_threshold(change_pct)
+                    if current_threshold < last_sent_threshold:
+                        message = (
+                            f"📉 Price Alert: {symbol_name}\n"
+                            f"Current Price: {current_price}\n"
+                            f"Change: {change_pct:.4f}%"
+                        )
+                        send_telegram(message)
+                        save_alert_threshold(symbol, current_threshold)
+                        result["alert_sent"] = True
+                        result["threshold"] = current_threshold
+                        log_to_file(f"Alert sent for {symbol_name}: threshold {current_threshold}")
+                    else:
+                        result["alert_sent"] = False
                 else:
                     result["alert_sent"] = False
                     
@@ -165,6 +204,47 @@ def get_symbols():
     }), 200
 
 
+@app.route('/send-status-telegram', methods=['POST'])
+def send_status_telegram():
+    try:
+        if last_check_status is None:
+            return jsonify({
+                "message": "No price data available yet",
+                "status_sent": False
+            }), 200
+        
+        results = last_check_status.get('results', [])
+        if not results:
+            return jsonify({
+                "message": "No results to send",
+                "status_sent": False
+            }), 200
+        
+        message_lines = ["📊 Price Drop Tracker Status\n"]
+        for result in results:
+            if result.get('status') == 'checked':
+                name = result.get('name', result.get('symbol'))
+                price = result.get('price', 'N/A')
+                change = result.get('change_pct', 0)
+                alert = "🚨" if result.get('alert_sent') else "✓"
+                message_lines.append(f"{alert} {name}: ${price} ({change:+.2f}%)")
+        
+        message = "\n".join(message_lines)
+        send_telegram(message)
+        log_to_file("Status sent to Telegram via endpoint")
+        
+        return jsonify({
+            "message": "Status sent to Telegram successfully",
+            "status_sent": True
+        }), 200
+    except Exception as e:
+        log_to_file(f"Error sending status to Telegram: {e}")
+        return jsonify({
+            "error": str(e),
+            "status_sent": False
+        }), 500
+
+
 scheduler = BackgroundScheduler()
 
 def scheduled_check():
@@ -176,11 +256,21 @@ scheduler.add_job(
     seconds=CHECK_INTERVAL,
     id='price_check_job',
     name='Price Check Job',
-    replace_existing=True
+    replace_existing=True,
+    next_run_time=datetime.now()
 )
 
+print(f"Starting scheduler with interval {CHECK_INTERVAL}s")
 scheduler.start()
-atexit.register(lambda: scheduler.shutdown())
+
+def shutdown_scheduler():
+    try:
+        if scheduler.running:
+            scheduler.shutdown()
+    except Exception:
+        pass
+
+atexit.register(shutdown_scheduler)
 
 
 if __name__ == '__main__':

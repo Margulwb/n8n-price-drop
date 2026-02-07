@@ -23,3 +23,4 @@ rm minikube-linux-amd64
 minikube start --driver=docker
 minikube status
 kubectl get nodes
+minikube ssh "sudo mkdir -p /var/log/price-drop /opt/price-drop && sudo chown 1000:1000 /var/log/price-drop /opt/price-drop"

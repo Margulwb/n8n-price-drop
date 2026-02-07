@@ -1,0 +1,11 @@
+.git
+.gitignore
+
+*.md
+
+docker-compose.yml
+Dockerfile
+.dockerignore
+
+kubernetes
+price-drop-tracker.py
