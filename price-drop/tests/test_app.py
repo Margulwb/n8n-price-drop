@@ -25,8 +25,6 @@ def client():
         yield client
 
 
-# === Testy endpointów ===
-
 class TestHealthEndpoint:
     def test_health_returns_200(self, client):
         response = client.get('/health')
@@ -116,8 +114,6 @@ class TestSendStatusTelegramEndpoint:
         mock_telegram.assert_called_once()
 
 
-# === Testy logiki progów alertów ===
-
 class TestGetNextThreshold:
     def test_threshold_at_minus_1(self):
         assert get_next_threshold(-1.0) == -1.0
@@ -141,8 +137,6 @@ class TestGetNextThreshold:
         assert get_next_threshold(-5.4) == -5.0
 
 
-# === Testy godzin rynku ===
-
 class TestMarketHours:
     @patch('app.log_to_file')
     def test_skips_before_9(self, mock_log):
@@ -160,8 +154,6 @@ class TestMarketHours:
             check_prices()
             mock_log.assert_called_with("Market closed (18:00:00). Skipping check.")
 
-
-# === Testy mapowania nazw ===
 
 class TestSymbolNames:
     def test_all_symbols_have_names(self):
@@ -181,8 +173,6 @@ class TestSymbolNames:
         assert SYMBOL_NAMES['VVSM.DE'] == 'Semiconductor'
 
 
-# === Testy konfiguracji ===
-
 class TestConfig:
     def test_alert_threshold_first(self):
         assert ALERT_THRESHOLD_FIRST == -1.0
@@ -193,8 +183,6 @@ class TestConfig:
     def test_symbols_count(self):
         assert len(SYMBOLS) == 8
 
-
-# === Testy check_alert_send ===
 
 class TestAlertThresholds:
     def test_save_and_get_thresholds(self, tmp_path):
@@ -220,8 +208,6 @@ class TestAlertThresholds:
             cleanup_alert_file()
             assert not os.path.exists(memory_file)
 
-
-# === Testy logowania ===
 
 class TestLogs:
     def test_log_to_file(self, tmp_path):

@@ -14,10 +14,6 @@ spec:
       labels:
         app: price-drop
     spec:
-      # securityContext:
-      #   runAsUser: 1000
-      #   runAsGroup: 1000
-      #   fsGroup: 1000
       initContainers:
       - name: wait-for-dns
         image: busybox:1.28
