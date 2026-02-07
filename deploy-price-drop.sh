@@ -10,6 +10,15 @@ NAMESPACE="default"
 DEPLOYMENT_NAME="price-drop-app"
 MANIFEST_PATH="$SCRIPT_DIR/price-drop/kubernetes/deployment.yaml"
 
+echo "=========================================="
+echo "Running tests..."
+echo "=========================================="
+cd "$SCRIPT_DIR/price-drop"
+TELEGRAM_CHAT_ID=test TELEGRAM_TOKEN=test python -m pytest tests/ -v --tb=short
+echo ""
+echo "All tests passed!"
+echo ""
+
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 IMAGE_TAG="${DOCKER_REGISTRY}/${APP_NAME}:${TIMESTAMP}"
 
@@ -17,7 +26,6 @@ echo "Image Tag: $IMAGE_TAG"
 echo ""
 
 echo "Building Docker image..."
-cd "$SCRIPT_DIR/price-drop"
 docker build -t "$IMAGE_TAG" .
 cd "$SCRIPT_DIR"
 
