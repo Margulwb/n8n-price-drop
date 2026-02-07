@@ -1,0 +1,50 @@
+name: Tests
+
+on:
+  push:
+    branches: [main, feature/*]
+    paths:
+      - 'price-drop/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'price-drop/**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: price-drop
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-cov
+
+      - name: Create required directories
+        run: |
+          sudo mkdir -p /var/log/price-drop /opt/price-drop
+          sudo chmod 777 /var/log/price-drop /opt/price-drop
+
+      - name: Run tests
+        env:
+          TELEGRAM_CHAT_ID: test
+          TELEGRAM_TOKEN: test
+          CHECK_INTERVAL: "300"
+        run: pytest tests/ -v --tb=short --cov=. --cov-report=term-missing
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: price-drop/htmlcov/

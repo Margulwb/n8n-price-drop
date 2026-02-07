@@ -199,6 +199,7 @@
                 <span>Live Monitoring</span>
             </div>
             <button class="refresh-btn" onclick="fetchData()">Refresh</button>
+            <button class="refresh-btn" onclick="sendStatusTelegram()" style="background: #667eea; color: white;">📱 Send to Telegram</button>
             <div class="last-update">
                 Last update: <span id="lastUpdate">--:--:--</span>
             </div>
@@ -242,18 +243,30 @@
         function renderCards(results) {
             const grid = document.getElementById('grid');
             
+            const symbolNames = {
+                "ISAC.L": "MSCI ACWI Globalny",
+                "CNDX.L": "NASDAQ 100",
+                "CSPX.L": "S&P 500",
+                "FLXC.DE": "FTSE China",
+                "VWCG.DE": "FTSE Developed Europe",
+                "ETFBW20TR.WA": "WIG20",
+                "FLXI.DE": "FTSE India",
+                "VVSM.DE": "Semiconductor"
+            };
+            
             if (results.length === 0) {
                 grid.innerHTML = '<div class="loading">No price data available yet. Try again in a moment.</div>';
                 return;
             }
             
             grid.innerHTML = results.map(item => {
-                const { symbol, price, change_pct, status, alert_sent, error } = item;
+                const { symbol, price, change_pct, status, alert_sent, error, name } = item;
+                const displayName = name || symbolNames[symbol] || symbol;
                 
                 if (status === 'error') {
                     return `
                         <div class="card">
-                            <div class="symbol">${symbol}</div>
+                            <div class="symbol">${displayName}</div>
                             <div style="color: #ef4444;">⚠️ Error</div>
                             <div style="font-size: 0.9em; color: #6b7280; margin-top: 10px;">${error}</div>
                         </div>
@@ -266,7 +279,7 @@
                 
                 return `
                     <div class="card">
-                        <div class="symbol">${symbol}</div>
+                        <div class="symbol">${displayName}</div>
                         <div class="price">$${typeof price === 'number' ? price.toFixed(2) : price}</div>
                         <div class="change">
                             <div class="change-value ${changeClass}">
@@ -283,6 +296,26 @@
             const now = new Date();
             const time = now.toLocaleTimeString('en-US', { hour12: false });
             document.getElementById('lastUpdate').textContent = time;
+        }
+        
+        function sendStatusTelegram() {
+            fetch('/send-status-telegram', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status_sent) {
+                    alert('✅ Status sent to Telegram!');
+                } else {
+                    alert('⚠️ ' + (data.message || 'Failed to send'));
+                }
+            })
+            .catch(error => {
+                alert('❌ Error: ' + error);
+            });
         }
         
         function startAutoRefresh() {

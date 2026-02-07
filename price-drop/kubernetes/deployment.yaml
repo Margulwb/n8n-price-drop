@@ -5,7 +5,7 @@ metadata:
   labels:
     app: price-drop
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: price-drop
@@ -14,10 +14,18 @@ spec:
       labels:
         app: price-drop
     spec:
-      restartPolicy: Always
+      # securityContext:
+      #   runAsUser: 1000
+      #   runAsGroup: 1000
+      #   fsGroup: 1000
+      initContainers:
+      - name: wait-for-dns
+        image: busybox:1.28
+        command: ['sh', '-c', "until nslookup query1.finance.yahoo.com; do echo waiting for DNS; sleep 2; done"]
+
       containers:
       - name: price-drop-container
-        image: margulewicz/price-drop:2.0
+        image: margulewicz/price-drop:20260207_103042
         imagePullPolicy: Always
         ports:
         - containerPort: 5000
@@ -35,7 +43,7 @@ spec:
               name: price-drop-secrets
               key: token
         - name: CHECK_INTERVAL
-          value: "300"
+          value: "90"
         - name: PYTHONUNBUFFERED
           value: "1"
         livenessProbe:
@@ -68,9 +76,13 @@ spec:
           mountPath: /opt/price-drop
       volumes:
       - name: logs-volume
-        emptyDir: {}
+        hostPath:
+          path: /var/log/price-drop
+          type: DirectoryOrCreate
       - name: data-volume
-        emptyDir: {}
+        hostPath:
+          path: /opt/price-drop
+          type: DirectoryOrCreate
 ---
 apiVersion: v1
 kind: Service
