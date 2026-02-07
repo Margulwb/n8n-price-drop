@@ -21,7 +21,7 @@ spec:
 
       containers:
       - name: price-drop-container
-        image: margulewicz/price-drop:20260207_103042
+        image: margulewicz/price-drop:20260207_110908
         imagePullPolicy: Always
         ports:
         - containerPort: 5000
@@ -42,6 +42,8 @@ spec:
           value: "90"
         - name: PYTHONUNBUFFERED
           value: "1"
+        - name: TZ
+          value: "Europe/Warsaw"
         livenessProbe:
           httpGet:
             path: /health

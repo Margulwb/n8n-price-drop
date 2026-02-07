@@ -1,6 +1,6 @@
 import requests
 from src.config import TELEGRAM_CHAT_ID, TELEGRAM_TOKEN
-from src.file.logs import log_to_file
+from src.logs import log_to_file
 
 
 def send_telegram(message):
